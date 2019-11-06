@@ -3,7 +3,6 @@ import tensorflow as tf
 from tensorflow.python.client import device_lib
 
 ngpus = 4
-buffer_size = 10000
 min_epochs = 5
 max_epochs = 100
 out_dir = "summary/mnist_tfkeras_g4"
@@ -43,16 +42,17 @@ strategy = tf.distribute.MirroredStrategy(devices=sliced_gpu_names)
 
 with strategy.scope():
     model = tf.keras.Sequential([
-        tf.keras.layers.Flatten(input_shape(28,28)),
+        tf.keras.layers.Flatten(input_shape=(28,28)),
         tf.keras.layers.Dense(hu_GOLD,
                            activation=act_GOLD,
                            kernel_initializer=winit_GOLD,
                            kernel_regularizer=tf.keras.regularizers.l2(l2_GOLD)),
         tf.keras.layers.Dense(10,
+                           activation='softmax',
                            kernel_initializer=tf.zeros_initializer(),
                            kernel_regularizer=tf.keras.regularizers.l2(l2_GOLD))
     ])
-
+            
     optimizer = tf.keras.optimizers.SGD(learning_rate=lr_GOLD)
 
     model.compile(
@@ -65,23 +65,22 @@ with strategy.scope():
 callbacks = []
 callbacks.append(
     tf.keras.callbacks.TensorBoard(
-        log_dir=args.model_dir,
+        log_dir=out_dir,
         update_freq=100,
         profile_batch=0
     )
 )
-'''
 callbacks.append(
     tf.keras.callbacks.EarlyStopping(
-        monitor='accuracy',
+        monitor='val_acc',
         patience=5
     )
 )
-'''
 
 model.fit(x_train,
           y_train,
           batch_size=gbs_GOLD,
           epochs=max_epochs,
+          callbacks=callbacks,
           validation_data=(x_test, y_test)
 )
