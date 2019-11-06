@@ -1,10 +1,12 @@
-import dataset
 import numpy as np
-import os
-import random
 import tensorflow as tf
 
-ngpus = 4
+ngpus = 2
+buffer_size = 10000
+min_epochs = 5
+max_epochs = 100
+out_dir = "summary/mnist_g2"
+
 winit_GOLD = tf.contrib.layers.variance_scaling_initializer(factor=1.0, mode='FAN_AVG', uniform=True)
 hu_GOLD = 95
 act_GOLD = tf.nn.tanh
@@ -12,12 +14,6 @@ gbs_GOLD = 20
 lbs_GOLD = gbs_GOLD // ngpus
 lr_GOLD = 0.3109187682539478
 l2_GOLD = 2.4342163691232212e-05
-acc_GOLD = 0.953
-
-min_epochs = 100
-max_epochs = 1000
-out_dir = "summary/mnist_GOLD_trace"
-data_dir = "data"
 
 def nn_model_fn(features, labels, mode, params):
     input_layer = tf.reshape( features, [-1, 28*28] )
@@ -66,25 +62,31 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 # load into train / test
 ((x_train, y_train), (x_test, y_test)) = tf.keras.datasets.mnist.load_data()
+
 x_train = x_train.astype(np.float32)
 x_train /= np.float32(255)
 y_train = y_train.astype(np.int32)  # not required
+
+print("x_train.shape = {}".format(x_train.shape))
+print("y_train.shape = {}".format(y_train.shape))
+
 x_test = x_test.astype(np.float32)
 x_test /= np.float32(255)
 y_test = y_test.astype(np.int32)  # not required
 
-train_input_fn = tf.estimator.inputs.numpy_input_fn(
-                     x=x_train,
-                     y=y_train,
-                     batch_size=lbs_GOLD,
-                     num_epochs=1,
-                     shuffle=True)
+print("x_test.shape = {}".format(x_test.shape))
+print("y_test.shape = {}".format(y_test.shape))
 
-eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-                    x=x_test,
-                    y=y_test,
-                    num_epochs=1,
-                    shuffle=False)
+def train_input_fn():
+    dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+    dataset = dataset.shuffle(buffer_size).repeat(1).batch(lbs_GOLD)
+    dataset = dataset.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
+    return dataset
+
+def eval_input_fn():
+    dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
+    dataset = dataset.batch(lbs_GOLD)
+    return dataset
 
 hyperparams = {'winit': winit_GOLD, 'hu': hu_GOLD, 'act': act_GOLD, 'bs': gbs_GOLD, 'lr': lr_GOLD, 'l2': l2_GOLD}
 
@@ -99,10 +101,8 @@ mnist_classifier = tf.estimator.Estimator(model_fn=nn_model_fn, model_dir=out_di
 
 max_val = 0.0
 max_epoch = 0
-epoch = 0
-done = False
 
-while not done:
+for epoch in range(max_epochs):
     mnist_classifier.train(input_fn=train_input_fn)
 
     eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
@@ -112,7 +112,5 @@ while not done:
         max_val = val
         max_epoch = epoch
 
-    if (epoch > max_epochs) or (epoch > min_epochs and val < max_val and max_epoch < 3*epoch/4):
-        done = True
-
-    epoch += 1
+    if (epoch > max_epochs) or (epoch > min_epochs and epoch - max_epoch > 5):
+        break
