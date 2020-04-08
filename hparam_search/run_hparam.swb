@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#SBATCH --job-name="hparam_search"
+#SBATCH --output="hparam_search.%j.%N.out"
+#SBATCH --error="hparam_search.%j.%N.err"
+#SBATCH --partition=gpux4
+#SBATCH --cpu_per_gpu=40
+#SBATCH --time=24
+
+source ~/.bashrc
+conda activate powerai-v1.6.0-py3.6
+cd ~/ddl_training/hparam_search
+python main.py
