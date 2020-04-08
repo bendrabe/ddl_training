@@ -7,11 +7,11 @@ from train import Experiment
 MODE = 'grid'
 MODEL_DIR_BASE = 'trials/'
 
-def get_next_trialnum(model_dir_base, max_trialno=None):
+def get_next_trialnum(model_dir_base, max_trialnum=None):
     trial = 0
     while os.path.exists(model_dir_base + str(trial)):
         trial += 1
-        if max_trialno and trial > max_trial_no:
+        if max_trialnum and trial > max_trialnum:
             print("All trials complete, exiting...")
             exit()
     return trial
@@ -56,7 +56,7 @@ else:
 
 if not os.path.exists(MODEL_DIR_BASE):
     os.makedirs(MODEL_DIR_BASE)
-model_dir = model_dir_base + str(trial) + '/'
+model_dir = MODEL_DIR_BASE + str(trial) + '/'
 os.makedirs(model_dir)
 
 if mixup:
